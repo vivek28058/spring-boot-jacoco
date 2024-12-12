@@ -1,0 +1,59 @@
+name: Java CI with Maven and JaCoCo
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    # Step 1: Checkout the code
+    - name: Checkout code
+      uses: actions/checkout@v2
+
+    # Step 2: Set up JDK
+    - name: Set up JDK 11
+      uses: actions/setup-java@v2
+      with:
+        java-version: '11'
+        distribution: 'temurin'  # Use temurin instead of adoptopenjdk
+
+    # Step 3: Cache Maven dependencies
+    - name: Cache Maven dependencies
+      uses: actions/cache@v2
+      with:
+        path: ~/.m2/repository
+        key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
+        restore-keys: |
+          ${{ runner.os }}-maven-
+
+    # Step 4: Build and run tests with Maven (including JaCoCo)
+    - name: Build with Maven
+      run: mvn clean verify
+
+    # Step 5: Upload JaCoCo code coverage report as an artifact
+    - name: Upload JaCoCo Code Coverage Report
+      uses: actions/upload-artifact@v2
+      with:
+        name: jacoco-report
+        path: target/site/jacoco/index.html
+
+    # Step 6: Generate the code coverage status (optional)
+    - name: Upload JaCoCo report status to GitHub
+      run: |
+        COVERAGE=$(grep -oP 'line-rate="\K[0-9.]+' target/site/jacoco/jacoco.xml)
+        echo "JaCoCo Code Coverage: $COVERAGE"
+        echo "coverage=$COVERAGE" >> $GITHUB_ENV
+
+  coverage-status:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Show code coverage result
+        run: echo "JaCoCo Code Coverage: ${{ needs.build.outputs.coverage }}"
